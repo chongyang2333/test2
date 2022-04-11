@@ -32,6 +32,7 @@ private:
 
 private:
     int interval;
+    int dtuTypeIndex = 0;
     volatile bool stopFlag;
     PdSerial *mSerial;
 };

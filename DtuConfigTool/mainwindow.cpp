@@ -20,7 +20,7 @@ MainWindow::MainWindow(QWidget *parent) :
     defaultLableStyleSheet = ui->lb_result1->styleSheet();
     defaultBtnStyleSheet = ui->bt_start1->styleSheet();
 
-    ui->tabWidget->setCurrentIndex(SettingINI::getInstance()->get(CURRENT_TAB_INDEX));
+    ui->tabWidget->setCurrentIndex(SettingINI::getInstance()->get(CURRENT_TAB_INDEX)); 
 
     connect(ui->bt_start1, SIGNAL(clicked()), this, SLOT(startDtuTest()));
     connect(ui->bt_start2, SIGNAL(clicked()), this, SLOT(startSignalTest()));
@@ -32,6 +32,20 @@ MainWindow::MainWindow(QWidget *parent) :
 MainWindow::~MainWindow()
 {
     delete ui;
+}
+
+void MainWindow::setdishwasherSignalTextBrowser(QString str,QColor bcol,QColor fcol,int fontW)
+{
+    if(str.isEmpty()||str.isNull())
+    {
+        return;
+    }
+    ui->textBrowser_2->setTextBackgroundColor(bcol);
+    ui->textBrowser_2->setTextColor(fcol);
+    ui->textBrowser_2->setFontPointSize(fontW);
+    ui->textBrowser_2->append (str);
+    ui->textBrowser_2->setTextBackgroundColor(QColor(255,255,255));
+    ui->textBrowser_2->setTextColor(QColor(0,0,0));
 }
 
 
@@ -51,11 +65,11 @@ void MainWindow::setTextBrowser(QString str,QColor bcol,QColor fcol,int fontW)
 }
 void MainWindow::init_ui()
 {
-    QFont font;
-    font.setFamily(QString::fromUtf8("\345\256\213\344\275\223")); //宋体
-    font.setPointSize(18);
-    font.setBold(true);
-
+    //version
+    ui->label_4->setText(QString("Version:") + QString(SOFTVERSION) + QString("  Building Time:") \
+                         +(QString(QDateTime::currentDateTime ().toString("yyyy.MM.dd--hh:mm"))));
+    ui->label_4->setAlignment(Qt::AlignRight);
+    //tab1_ui init
     ui->label->setText("PID编号：");
     ui->label->setStyleSheet("font-size:25px;color:rgb(10,10,10)");
     ui->lineEdit->setStyleSheet("QLineEdit{font-size:25px;background-color: rgb(255,255,255);color:rgb(55,100,255);height:50px;\
@@ -65,24 +79,27 @@ void MainWindow::init_ui()
     ui->pushButton->setEnabled(false);
     ui->pushButton_2->setText("清屏");
     ui->pushButton_2->setStyleSheet(("background-color: rgb(255,0,0);font-size:25px;color:#f5f5f5"));// 70, 212, 255
-
     ui->textBrowser->setStyleSheet(("background-color: rgb(255,255,255);font-size:25px;color:#f5f5f5"));
-
-    setTextBrowser(QString("Building Time:") + QString(__DATE__) + QString("--") + \
-                   QString(__TIME__), QColor(255, 255, 255), QColor(0, 255, 0), 20);
-
+    setTextBrowser(QString("Building Time:") + (QString(QDateTime::currentDateTime ().toString("yyyy.MM.dd hh:mm:ss.zzz ddd"))),\
+                   QColor(255, 255, 255), QColor(0, 255, 0), 20);
     connect(ui->lineEdit, SIGNAL(textChanged(QString)), this, SLOT(setBtnState(QString)));
     connect(ui->pushButton, SIGNAL(clicked()), this, SLOT(startDtuCfg()));
     connect(ui->pushButton_2, SIGNAL(clicked()), this, SLOT(clearTexrBrowser()));
-//     qDebug()<<"ui init = "<<QThread::currentThread();
-//     mDtuCfgThread = new dtuCfgThread;
-//     connect(mDtuCfgThread, QThread::finished, mDtuCfgThread, QThread::deleteLater);
-//     connect(mDtuCfgThread, QThread::finished, this, dtuCfgStoped);
-//     connect(mDtuCfgThread, dtuCfgThread::dtuCfgResult, this, dtuCfgResultShow);
-//     connect(this,SIGNAL(SendLineEditToCfgThread(QString)),mDtuCfgThread,SLOT(getPidStartCfgDtu(QString)));
 
-//     mDtuCfgThread->start();
-
+    //tab_2_ui init
+    ui->label_2->setText("PID编号：");
+    ui->label_2->setStyleSheet("font-size:25px;color:rgb(10,10,10)");
+    ui->label_3->setText("在线检测整机天线强度");
+    ui->label_3->setStyleSheet("font-size:35px;color:rgb(207,53,46)");
+    ui->label_3->setAlignment(Qt::AlignHCenter);
+    ui->lineEdit_2->setStyleSheet("QLineEdit{font-size:25px;background-color: rgb(255,255,255);color:rgb(55,100,255);height:50px;\
+                                border:4px;solid:rgb(155,200,33);selection-color:pink}");//
+    ui->pushButton_3->setText("确认");
+    ui->pushButton_3->setStyleSheet(("background-color: rgb(22, 155, 219);font-size:25px"));// 70, 212, 255 color:#f5f5f5
+    ui->pushButton_3->setEnabled(false);
+    ui->textBrowser_2->setStyleSheet(("background-color: rgb(255,255,255);font-size:25px;color:#f5f5f5"));
+    connect(ui->lineEdit_2, SIGNAL(textChanged(QString)), this, SLOT(setSignalQueryBtnState(QString)));
+    connect(ui->pushButton_3, SIGNAL(clicked()), this, SLOT(startQueryDishwasherSignal()));
 
 }
 
@@ -90,6 +107,19 @@ void MainWindow::clearTexrBrowser()
 {
     ui->textBrowser->clear();
 }
+
+void MainWindow::setSignalQueryBtnState(QString)
+{
+    if(!ui->lineEdit_2->text().isEmpty())
+    {
+        ui->pushButton_3->setEnabled(true);
+    }
+    else
+    {
+        ui->pushButton_3->setEnabled(false);
+    }
+}
+
 void MainWindow::setBtnState(QString)
 {
     if(!ui->lineEdit->text().isEmpty())
@@ -106,6 +136,53 @@ void MainWindow::dtuCfgStoped()
     qDebug()<<"dtuCfgThread finished";
     delete mDtuCfgThread;
 }
+
+void MainWindow::dtusignalQueryThreadStoped()
+{
+    qDebug()<<"dishwasherSignalQueryThread finished";
+    delete mdishwasherSignalQueryThread;
+}
+
+
+void MainWindow::startQueryDishwasherSignal()
+{
+    QString tmp;
+
+    tmp = ui->lineEdit_2->text();
+    qDebug()<<"signalQuery btn has cliced,pid = " << tmp;
+
+    ui->textBrowser_2->clear();
+    setdishwasherSignalTextBrowser("开始查询整机信号值", QColor(255, 255, 255), QColor(0, 0, 0), 20);
+    ui->pushButton_3->setEnabled(false); 
+    qDebug()<<"signalQuery btn clicked pid = "<<QThread::currentThread();
+
+    mdishwasherSignalQueryThread = new dishwasherSignalQueryThread(tmp);
+    connect(mdishwasherSignalQueryThread, QThread::finished, mdishwasherSignalQueryThread, QThread::deleteLater);
+    connect(mdishwasherSignalQueryThread, QThread::finished, this, dtusignalQueryThreadStoped);
+    connect(mdishwasherSignalQueryThread, dishwasherSignalQueryThread::dishwasherSignalQueryResult, \
+            this, dishwasherSignalResultShow);
+
+     mdishwasherSignalQueryThread->start();
+
+}
+void MainWindow::dishwasherSignalResultShow(QString showText,int errCode)
+{
+
+    if(dtuCfgThread::NoErr == errCode)
+    {
+        setdishwasherSignalTextBrowser(showText, QColor(255, 255, 255), QColor(0, 0, 0), 20);
+    }
+    else
+    {
+        setdishwasherSignalTextBrowser(showText, QColor(255, 255, 255), QColor(255, 40, 37), 20);
+    }
+
+    ui->lineEdit_2->clear();
+    ui->pushButton_3->setEnabled(false);
+}
+
+
+
 void MainWindow::startDtuCfg()
 {
     //
@@ -114,7 +191,7 @@ void MainWindow::startDtuCfg()
     connect(mDtuCfgThread, QThread::finished, mDtuCfgThread, QThread::deleteLater);
     connect(mDtuCfgThread, QThread::finished, this, dtuCfgStoped);
     connect(mDtuCfgThread, dtuCfgThread::dtuCfgResult, this, dtuCfgResultShow);
-//     connect(this,SIGNAL(SendLineEditToCfgThread(QString)),mDtuCfgThread,SLOT(getPidStartCfgDtu(QString)));
+    connect(this,SIGNAL(startActiveDtu()),mDtuCfgThread,SLOT(couldStartActivDev()));
 
     ui->textBrowser->clear();
     setTextBrowser("PID验证中", QColor(255, 255, 255), QColor(0, 0, 0), 20);
@@ -141,6 +218,13 @@ void MainWindow::dtuCfgResultShow(QString showText,int errCode)
             ui->textBrowser->clear();
             ui->lineEdit->clear();
             ui->pushButton->setEnabled(false);
+        }
+        if(showText == "等待DTU连接洗碗机")
+        {
+            QMessageBox message(QMessageBox::Warning,"DtuConfigTool","<font size='35' color='red'>请将DTU端232口连接至洗碗机</font>");
+            message.exec();
+            //通知子线程拔插线已完成，可以开始自检了
+            emit startActiveDtu();
         }
     }
     else
@@ -184,17 +268,22 @@ void MainWindow::dtuTestResult(QString portName1, QString portName2, int portNum
     bool signalResult = false;
     qDebug() << "testResult:" << portNum << " port1:" << portName1 << " port2:" << portName2;
     qDebug() << "testResult: signalStrength = " << signalStrength;
-    if (portNum < 2) {
-        ui->textBrowser1->setText("查找设备失败，请确认是否已经把两根USB转串口线都连接电脑");
-    }else if(portNum > 2){
-        ui->textBrowser1->setText("请确认电脑是否接入了多个DTU");
+    if (portNum < 1) {
+        if(signalStrength == -3){
+        }else{
+            ui->textBrowser1->setText("查找设备失败，请确认是否已经把设备232口连接至电脑");
+        }
     }else {
         ui->textBrowser1->setText("设备连接测试成功");
         uartResult = true;
     }
 
     if (signalStrength < 0 || signalStrength == 99) {
-        ui->textBrowser1->append("网络信号强度获取失败, 请检查是否插入了电话卡");
+        if(signalStrength == -3){
+            ui->textBrowser1->setText("DTU Type Error");
+        }else{
+            ui->textBrowser1->append("网络信号强度获取失败, 请检查是否插入了电话卡");
+        }
     } else if (signalStrength < 16) {
         ui->textBrowser1->append(QString("网络信号强度为") + QString::number(signalStrength) + "db, 不合格！！！");
     } else {
@@ -238,10 +327,18 @@ void MainWindow::startSignalTest()
 void MainWindow::signalTestResult(int strength)
 {
     qDebug() << "signalTestResult: " << strength;
+    
     if (strength < 0) {
-        ui->textBrowser2->setText("检测串口失败，请确认串口是否接入电脑，DTU是否恢复出厂设置");
-        ui->lb_result2->setText("测试失败");
-        ui->lb_result2->setStyleSheet("background:red;font: 22px \"新宋体\";");
+        if(strength == -3){
+            ui->textBrowser2->setText("DTU Type Error");
+            ui->lb_result2->setText("测试失败");
+            ui->lb_result2->setStyleSheet("background:red;font: 22px \"新宋体\";");
+        }
+        else{
+            ui->textBrowser2->setText("检测串口失败，请确认串口是否接入电脑，DTU是否恢复出厂设置");
+            ui->lb_result2->setText("测试失败");
+            ui->lb_result2->setStyleSheet("background:red;font: 22px \"新宋体\";");
+        }
     } else if (strength == 99) {
         ui->textBrowser2->setText("网络信号强度获取失败, 请检查是否插入了电话卡");
         ui->lb_result2->setText("测试失败");
@@ -259,9 +356,16 @@ void MainWindow::signalTestResult(int strength)
 
 void MainWindow::saveCurrentTabIndex(int index)
 {
+//    qDebug()<<"CURRENT_TAB_INDEX:"<<index;
     SettingINI::getInstance()->save(CURRENT_TAB_INDEX, index);
+    if((1 == index)&&(ui->bt_start2->text() != "开始测试"))
+    {
+        ui->bt_start2->clicked();
+        qDebug()<<"curent tab change,dtu signalTest auto finished:"<<index;
+    }
+//    qDebug()<<"CURRENT_TAB_INDEX:"<<index;
 }
-
+ 
 void MainWindow::dtuTestStoped()
 {
     ui->bt_start1->setEnabled(true);

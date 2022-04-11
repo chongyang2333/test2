@@ -4,6 +4,7 @@
 #include <QSerialPort>
 #include <QSerialPortInfo>
 #include <QEventLoop>
+#include "settingini.h"
 dtuCfgThread::dtuCfgThread()
 {
 
@@ -467,48 +468,43 @@ bool dtuCfgThread::sendSelfcheckResultToMesByHttps()
     else
     {
         qDebug()<<"activeCurDevByHttps failed";
-        cfgFailedHandling();
+//        cfgFailedHandling();
+            myC_serial->serial_close(Serial_ch.toLatin1(),1);
         return false;
     }
 
 }
 
 
-bool dtuCfgThread::selfcheckCurDevByHttps()
+bool dtuCfgThread::selfcheckCurDevByHttps(QString * devVersion)
 {
     int tmp;
-    tmp = PdHttpApi::getInstance(this)->getTcpClientSelfCheckResult(dtuTcpRegisterInfo->pid);
-    // tmp = PdHttpApi::getInstance(this)->getTcpClientSelfCheckResult("");    // dtuTcpRegisterInfo->pid
-    if(1 == tmp)
+    PdDevSelfCheckInfo * info = PdHttpApi::getInstance(this)->getTcpClientSelfCheckResult(dtuTcpRegisterInfo->pid);
+    if( info != nullptr && (info->selfCheckState == 1))
     {
-        qDebug()<<"checkCurDevByHttps succeed";
+        qDebug()<<"checkCurDevByHttps succeed";    
+        *devVersion = QString::number(info->dishwasherVersion,10);
         return true;
     }
-    else if(0 == tmp)
-    {
+    else if( info != nullptr && (info->selfCheckState == 0))
+    {        
         qDebug()<<"checkCurDevByHttps failed: Selfcheck ";
         return false;
     }
-    else if(-1 == tmp)
+    else
     {
         qDebug()<<"checkCurDevByHttps failed: exception err ";
         return false;
     }
-
-    return false;
 }
-bool dtuCfgThread::checkCurDevByHttps()
+bool dtuCfgThread::checkCurDevByHttps(QString * devVersion)
 {
     int errCount = 0;
-
-    QEventLoop loop;
-    QTimer::singleShot(2000, &loop, SLOT(quit()));
-    loop.exec();
     //最多会自检三次
     while(errCount < 1)
     {
         //等待自检成功
-        if(selfcheckCurDevByHttps())
+        if(selfcheckCurDevByHttps(devVersion))
         {
             return true;
         }
@@ -520,12 +516,20 @@ bool dtuCfgThread::checkCurDevByHttps()
             errCount++;
         }
     }
-    cfgFailedHandling();
+    myC_serial->serial_close(Serial_ch.toLatin1(),1);
+//    cfgFailedHandling();
     return false;
 }
 
 void dtuCfgThread::dtuCfg()
 {
+    curDtuTypeIndex = SettingINI::getInstance()->getDtuTypeIndex(CURRENT_DTU_TYPE_INDEX);
+    if(curDtuTypeIndex == 0)
+    {
+        emit dtuCfgResult("未知的DTU类型",ErrUnknownDtuType);
+        return;
+    }
+    qDebug()<<"dtu type = "<<curDtuTypeIndex;
     //云端获取设备PID
     if(getRegisterInfoFromHttps(dtuTcpRegisterInfo->pid))//
     {
@@ -559,24 +563,39 @@ void dtuCfgThread::dtuCfg()
     //重启当前设备
     if(reStartCurDev())
     {
-        emit dtuCfgResult("重启当前设备成功\r\n开始激活当前设备",NoErr);
+        emit dtuCfgResult("重启当前设备成功\r\n",NoErr);
     }
     else
     {
         emit dtuCfgResult("重启当前设备失败",ErrReStartDevFailed);
         return;
     }
-    
-    //当前设备进行自检
-    if(checkCurDevByHttps())
+
+    //等待232换线
+    emit dtuCfgResult("等待DTU连接洗碗机",NoErr);
+    while(1)
     {
-        emit dtuCfgResult("当前设备自检成功\r\n开始入库设备",NoErr);
+        if(startActiveFlag == true)
+        {
+            startActiveFlag = false;  
+            break;
+        }
+        QThread::msleep(100);
+    }
+    emit dtuCfgResult("开始自检当前设备",NoErr);
+    QString  tmpVersion; 
+    //当前设备进行自检
+    if(checkCurDevByHttps(&tmpVersion))
+    {
+        qDebug()<<"read versiong: "<<tmpVersion ;
+        emit dtuCfgResult("洗碗机软件版本: " + tmpVersion + "\r\n当前设备自检成功\r\n开始入库设备" ,NoErr);
     }
     else
     {
         emit dtuCfgResult("当前设备自检失败",ErrCheckDevFailed);
         return;
     }
+
     //通知云端设备质检成功
     if(sendSelfcheckResultToMesByHttps())
     {
@@ -588,6 +607,11 @@ void dtuCfgThread::dtuCfg()
         return;
     }
 
+}
+
+void dtuCfgThread::couldStartActivDev()
+{
+    startActiveFlag = true;
 }
 
 void dtuCfgThread::getPidStartCfgDtu(QString pidNum)

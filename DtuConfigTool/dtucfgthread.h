@@ -14,12 +14,14 @@ public:
     enum ErrID
     {
         NoErr = 0,
+        ErrUnknownDtuType,
         ErrGetRegisterFailed,
         ErrSearchDevFailed,
         ErrCfgDevFailed,
         ErrReStartDevFailed,
         ErrActiveDevFailed,
         ErrCheckDevFailed,
+        ErrQueryDevSignalFailed,
     };
     void initPid(QString pid)
     {
@@ -35,20 +37,22 @@ private:
     bool cfgCurDev();
     bool reStartCurDev();
     bool activeCurDevByHttps();
-    bool checkCurDevByHttps();
+    bool checkCurDevByHttps(QString *devVersion);
     bool serialSendCmdCheckReturn(QString SendATCmd,QString ReceiveATCmd);
     void serialSendCfgAT();
     bool reStartCurDevBySerial();
     bool readCurDtuCfg();
     bool waitUntilSerialReadReadyOrTimeout(int timeoutValue);
-    bool selfcheckCurDevByHttps();
+    bool selfcheckCurDevByHttps(QString *devVersion);
     void cfgFailedHandling();
     bool sendSelfcheckResultToMesByHttps();
 //    bool selfcheckCurDevByHttps();
     bool startCfgFlag = false;
+    bool startActiveFlag = false;
     c_serail  *myC_serial;
     QTimer    *serialDelayLoopTimer;
     QString    Serial_ch;
+    int curDtuTypeIndex = 0;
 //    PdHttpApi  *PdhttpApiAdress = PdHttpApi::getInstance(this);
     QByteArray PidNumLineInput;
     PdDeviceRegisterInfo *AliRegisterInfo;
@@ -62,6 +66,7 @@ signals:
 
 private slots:
     void getPidStartCfgDtu(QString pidNum);
+    void couldStartActivDev();
 };
 
 #endif // DTUCFGTHREAD_H

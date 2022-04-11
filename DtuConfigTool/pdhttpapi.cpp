@@ -8,31 +8,33 @@ PdHttpApi *PdHttpApi::pdHttpApi = nullptr;
 
 PdHttpApi::PdHttpApi(QObject *parent):PdHttpClient(parent, false)
 {
-    maxRetryTimes = 5;
+    maxRetryTimes = 1;
+    retryTimes = 0;
     // qDebug()<<"PdHttpApi pid = "<<QThread::currentThread();
-//    getAccessToken();
+    getAccessToken();
 }
 
 int PdHttpApi::getAccessToken()
 {
     QJsonObject json;
-    json.insert("client_id", CLIENT_ID);
-    json.insert("client_secret", CLIENT_SECRET);
-    json.insert("grant_type", GRANT_TYPE);
+    json.insert("client_id", HTTP_CLIENT_ID);
+    json.insert("secret", HTTP_CLIENT_SECRET);
     QJsonDocument doc;
     doc.setObject(json);
     QByteArray byteData = doc.toJson(QJsonDocument::Compact);
 
-    QString url = QString(BASE_URL) + QString(AUTH_URL);
+    QString url = QString(HTTP_BASE_URL) + QString(HTTP_POST_TOKEN_DOMAIN_SUFFIX);
 
     QNetworkReply *reply = httpClientPost(url, nullptr, byteData);
 
-    if (reply == nullptr) {
+    if (reply == nullptr) 
+    {
         qDebug() << "httpClientPost failed";
         return -1;
     }
 
-    if(reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() != 200) {
+    if(reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() != 200)
+    {
         qWarning() << "getAccessToken failed, status code:" << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         qWarning() << reply->readAll();
         return -1;
@@ -43,18 +45,27 @@ int PdHttpApi::getAccessToken()
     QJsonParseError jsonError;
 
     QJsonDocument rdoc = QJsonDocument::fromJson(replyData, &jsonError);
-    if (!rdoc.isNull() && jsonError.error == QJsonParseError::NoError) {
-        if (rdoc.isObject()) {
+    if (!rdoc.isNull() && jsonError.error == QJsonParseError::NoError) 
+    {
+        if (rdoc.isObject()) 
+        {
             QJsonObject obj = rdoc.object();
-            if (obj.contains("access_token")) {
-                accessToken = obj.value("access_token").toString();
-            }
-            if (obj.contains("expires_in")) {
-                expiresIn = obj.value("expires_in").toInt();
-            }
-            if (obj.contains("token_type")) {
-                tokenType = obj.value("token_type").toString();
-            }
+            if (obj.contains("code")) 
+            {
+                qint64 code = QString::number(obj.value("code").toDouble(), 'f', 0).toLongLong();
+                if ((code == 200  || code == 0) && obj.contains("data")) 
+                {
+                    QJsonObject infoObj = obj.value("data").toObject();
+                    if (infoObj.contains("access_token"))
+                    {
+                        accessToken = infoObj.value("access_token").toString();
+                    }
+                    if (infoObj.contains("expires_in")) 
+                    {
+                        expiresIn = infoObj.value("expires_in").toInt();
+                    }
+                }
+            }            
         }
     }
     return 0;
@@ -64,12 +75,20 @@ int PdHttpApi::getAccessToken()
 PdDeviceTcpRsgisterInfo *PdHttpApi::getTcpRegisterInfo(QString pid)
 {
     qDebug()<<"getTcpRegisterInfo : pid = "<< pid;
+    if(accessToken.isEmpty())
+    {
+        if(getAccessToken() < 0)
+        {
+            qWarning()<< "getAccessToken failed";
+            return nullptr;
+        }
+    }
 
     QString url = QString(HTTP_BASE_URL) + QString(HTTP_GET_DTUCFG_DOMAIN_SUFFIX_1) + \
                   QString(pid) + QString(HTTP_GET_DTUCFG_DOMAIN_SUFFIX_2);
 
-    qDebug() <<"getTcpRegisterInfo : url = " << url;
-    QNetworkReply *reply = httpClientGetData(url);
+    qDebug() <<"getTcpRegisterInfo : url = " << url << ",accessToken :"<<accessToken;
+    QNetworkReply *reply = httpClientGet(url,accessToken);
     if (reply == nullptr) 
     {
         qDebug() << "getTcpRegisterInfo->get : failed";
@@ -78,19 +97,26 @@ PdDeviceTcpRsgisterInfo *PdHttpApi::getTcpRegisterInfo(QString pid)
 
     int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
 
-    if (statusCode == 401) 
+    if(statusCode == 401) 
     {
-        if (retryTimes >= maxRetryTimes) 
+        qDebug() << "getTcpRegisterInfo->get : failed" << retryTimes << " times, but failed";
+        if(retryTimes >= maxRetryTimes) 
         {
             qDebug() << "getTcpRegisterInfo->get : failed" << retryTimes << " times, but failed";
+            retryTimes = 0;
             return nullptr;
         }
         retryTimes++;
+        if(getAccessToken() < 0)
+        {
+            qWarning()<< "getAccessToken failed";
+            return nullptr;
+        }        
         return getTcpRegisterInfo(pid); //重新尝试获取设备信息
     }
     else if (statusCode != 200) 
     {
-        qWarning() << "getTcpRegisterInfo->get： failed,status code =" << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        qWarning() << "getTcpRegisterInfo->get: failed,status code =" << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         qWarning() << reply->readAll();
         return nullptr;
     }   
@@ -146,7 +172,84 @@ PdDeviceTcpRsgisterInfo *PdHttpApi::getTcpRegisterInfo(QString pid)
     return nullptr;
 
 }
+int PdHttpApi::getdishwasherSignal(QString pid)
+{
+    qDebug()<<"getdishwasherSignal : pid = "<< pid;
+    if(accessToken.isEmpty())
+    {
+        if(getAccessToken() < 0)
+        {
+            qWarning()<< "getdishwasherSignal getAccessToken failed";
+            return -1;
+        }
+    }
 
+    QString url = QString(HTTP_BASE_URL) + QString(HTTP_GET_DISHWASHER_SIGNAL_DOMAIN_SUFFIX_1) + \
+                  QString(pid) + QString(HTTP_GET_DISHWASHER_SIGNAL_DOMAIN_SUFFIX_2);
+
+    qDebug() <<"getdishwasherSignal : url = " << url;
+    QNetworkReply *reply = httpClientGet(url,accessToken);
+    if (reply == nullptr) 
+    {
+        qDebug() << "getdishwasherSignal->get : failed";
+        return -1;
+    }
+
+    int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+
+    if(statusCode == 401) 
+    {
+        if(retryTimes >= maxRetryTimes) 
+        {
+            qDebug() << "getdishwasherSignal->get : failed" << retryTimes << " times, but failed";
+            return -1;
+        }
+        retryTimes++;
+        if(getAccessToken() < 0)
+        {
+            qWarning()<< "getAccessToken failed";
+            return -1;
+        }        
+        return getdishwasherSignal(pid); //重新尝试获取设备信息
+    }
+    else if (statusCode != 200) 
+    {
+        qWarning() << "getdishwasherSignal->get: failed,status code =" << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        qWarning() << reply->readAll();
+        return -1;
+    }   
+
+    qDebug() << "getdishwasherSignal->get succeed,statusCode = " << statusCode;
+    QByteArray replyData = reply->readAll();
+    qDebug() << replyData;   
+    QJsonParseError jsonError;
+
+    QJsonDocument rdoc = QJsonDocument::fromJson(replyData, &jsonError);
+    if (!rdoc.isNull() && jsonError.error == QJsonParseError::NoError) 
+    {
+        if (rdoc.isObject()) 
+        {
+            QJsonObject obj = rdoc.object();
+            if (obj.contains("code")) 
+            {
+                qint64 code = QString::number(obj.value("code").toDouble(), 'f', 0).toLongLong();
+                if ((code == 200  || code == 0) && obj.contains("data")) 
+                {
+                    int tmpSignalValue = 0;
+                    QJsonObject infoObj = obj.value("data").toObject();
+                    if (infoObj.contains("signal"))
+                    {
+                        tmpSignalValue = infoObj.value("signal").toDouble();
+                        qDebug() << "getdishwasherSignal->get succeed,tmpSignalValue = " << tmpSignalValue;
+                        return tmpSignalValue;
+                    }
+                }
+            }
+        }
+    }
+    return -1;
+
+}
 PdDeviceRegisterInfo *PdHttpApi::getRegisterInfo(QString pid)
 {
     qDebug()<<"getRegisterInfo: "<< pid;
@@ -164,7 +267,7 @@ PdDeviceRegisterInfo *PdHttpApi::getRegisterInfo(QString pid)
     QByteArray byteData = doc.toJson(QJsonDocument::Compact);
     qDebug()<<byteData;
 
-    QString url = QString(BASE_URL) + QString(GET_REGISTER_INFO);
+    QString url = QString(HTTP_BASE_URL) + QString(GET_REGISTER_INFO);
 
     QNetworkReply *reply = httpClientPost(url, accessToken, byteData);
     if (reply == nullptr) {
@@ -228,8 +331,15 @@ PdDeviceRegisterInfo *PdHttpApi::getRegisterInfo(QString pid)
 
 bool PdHttpApi::sendSelfCheckStatusToMes(QString pid)
 {
-    qDebug()<<"sendSelfCheckStatusToMes： pid = "<< pid;
-
+    qDebug()<<"sendSelfCheckStatusToMes: pid = "<< pid;
+    if(accessToken.isEmpty()) 
+    {
+        if(getAccessToken() < 0) 
+        {
+            qWarning()<< "getAccessToken failed";
+            return false;
+        }
+    }
 
     QJsonObject json;
     json.insert("status",1);
@@ -239,8 +349,8 @@ bool PdHttpApi::sendSelfCheckStatusToMes(QString pid)
 
     QString url = QString(HTTP_BASE_URL) + QString(HTTP_PATCH_DOMAIN_SUFFIX_1) + \
                   QString(pid) + QString(HTTP_PATCH_DOMAIN_SUFFIX_2);
-    qDebug() <<"sendSelfCheckStatusToMes： url = " << url;
-    QNetworkReply *reply = httpClientPatchData(url,byteData);
+    qDebug() <<"sendSelfCheckStatusToMes: url = " << url;
+    QNetworkReply *reply = httpClientPatchData(url,accessToken,byteData);
     if (reply == nullptr) 
     {
         qDebug() << "sendSelfCheckStatusToMes->patch： failed";
@@ -248,7 +358,23 @@ bool PdHttpApi::sendSelfCheckStatusToMes(QString pid)
     }
 
     int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-    if (statusCode != 200) 
+
+    if(statusCode == 401) 
+    {
+        if (retryTimes >= maxRetryTimes) 
+        {
+            qDebug() << "sendSelfCheckStatusToMes->patch:Get access token failed" << retryTimes << " times, but failed";
+            return false;
+        }
+        retryTimes++;
+        if(getAccessToken() < 0) 
+        {
+            qWarning()<< "getAccessToken failed";
+            return false;
+        }
+        return sendSelfCheckStatusToMes(pid); //重新尝试
+    }
+    else if (statusCode != 200) 
     {
         qWarning() << "sendSelfCheckStatusToMes->patch:failed, status code:" << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         qWarning() << reply->readAll();
@@ -345,19 +471,27 @@ bool PdHttpApi::active(QString pid)
     return false;
 }
 
-int PdHttpApi::getTcpClientSelfCheckResult(QString pid)
+PdDevSelfCheckInfo * PdHttpApi::getTcpClientSelfCheckResult(QString pid)
 {
     qDebug()<<"getTcpClientSelfCheckResult : pid = "<< pid;
+    if(accessToken.isEmpty()) 
+    {
+        if(getAccessToken() < 0) 
+        {
+            qWarning()<< "getAccessToken failed";
+            return nullptr;
+        }
+    }    
 
     QString url = QString(HTTP_BASE_URL) + QString(HTTP_GET_INSPECT_STATUS_DOMAIN_SUFFIX_1) + \
                   QString(pid) + QString(HTTP_GET_INSPECT_STATUS_DOMAIN_SUFFIX_2);
 
     qDebug() <<"getTcpClientSelfCheckResult : url = " << url;
-    QNetworkReply *reply = httpClientGetData(url);
+    QNetworkReply *reply = httpClientGet(url,accessToken);;
     if (reply == nullptr) 
     {
         qDebug() << "getTcpClientSelfCheckResult->get : failed";
-        return -1;
+        return nullptr;
     }
 
     int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
@@ -366,17 +500,22 @@ int PdHttpApi::getTcpClientSelfCheckResult(QString pid)
     {
         if (retryTimes >= maxRetryTimes) 
         {
-            qDebug() << "getTcpClientSelfCheckResult->get:failed" << retryTimes << " times, but failed";
-            return -1;
+            qDebug() << "getTcpClientSelfCheckResult->get:Get access token failed" << retryTimes << " times, but failed";
+            return nullptr;
         }
-        retryTimes++;
+        retryTimes++;        
+        if(getAccessToken() < 0) 
+        {
+            qWarning()<< "getAccessToken failed";
+            return nullptr;
+        }        
         return getTcpClientSelfCheckResult(pid); //重新尝试
     }
     else if (statusCode != 200) 
     {
         qWarning() << "getTcpClientSelfCheckResult->get:failed,status code:" << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         qWarning() << reply->readAll();
-        return -1;
+        return nullptr;
     }
 
     qDebug() << "getTcpClientSelfCheckResult->get:succeed,statusCode = " << statusCode;
@@ -395,18 +534,23 @@ int PdHttpApi::getTcpClientSelfCheckResult(QString pid)
                 qint64 code = QString::number(obj.value("code").toDouble(), 'f', 0).toLongLong();
                 if ((code == 200  || code == 0) && obj.contains("data")) 
                 {
-                    QJsonObject dataObj = obj.value("data").toObject();
-                    if (dataObj.contains("status")) 
+                    PdDevSelfCheckInfo * info =  new PdDevSelfCheckInfo;
+                    QJsonObject infoObj = obj.value("data").toObject();
+                    if (infoObj.contains("status")) 
                     {
-                        qDebug()<<"SelfCheckResult succeed,status:"<< dataObj.value("status").toInt();    
-                        return dataObj.value("status").toInt();
+                        info->selfCheckState = infoObj.value("status").toInt();
                     }
+                    if (infoObj.contains("firmware_version")) 
+                    {
+                        info->dishwasherVersion = infoObj.value("firmware_version").toInt();
+                    }
+                    return info;                    
                 }
             }
         }
     }
 
-    return -1;    
+    return nullptr;    
 
 }
 

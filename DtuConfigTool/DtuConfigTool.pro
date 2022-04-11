@@ -26,7 +26,8 @@ SOURCES += main.cpp\
     atcommandsendthread.cpp \
     iqctestthread.cpp \
     signalstrengthtestthread.cpp \
-    settingini.cpp
+    settingini.cpp \
+    dishwashersignalquerythread.cpp
 
 HEADERS  += \
     serial_iii.h\
@@ -40,7 +41,8 @@ HEADERS  += \
     atcommandsendthread.h \
     iqctestthread.h \
     signalstrengthtestthread.h \
-    settingini.h
+    settingini.h \
+    dishwashersignalquerythread.h
 
 FORMS    += dtuconfigtool.ui \
     mainwindow.ui

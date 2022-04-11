@@ -15,11 +15,14 @@
 //GET   https://dishwasher-oapi-dev.pudutech.com/dishwasher-gateway/api/v1/devices/69042110018001/dtu_config
 //PATCH https://dishwasher-oapi-dev.pudutech.com/dishwasher-gateway/api/devices/69042110018001/activated_status
 #ifdef DEV
-//     #define HTTP_BASE_URL    "https://dishwasher-oapi-dev.pudutech.com"   // 开发服地址
-        #define HTTP_BASE_URL   "https://dishwasher-oapi-test.pudutech.com"
-//    #define HTTP_BASE_URL    "http://192.168.51.58:9001"
-//    #define HTTP_BASE_URL     "http://localhost:8000"
-//      #define HTTP_BASE_URL      "http://106.55.79.138:30012"
+    // #define HTTP_BASE_URL    "http://192.168.51.58:9001"
+    // #define HTTP_BASE_URL     "http://localhost:8000"
+    // #define HTTP_BASE_URL      "http://106.55.79.138:30012"
+    // #define HTTP_BASE_URL    "https://dishwasher-oapi-dev.pudutech.com"   // 开发服地址
+    #define HTTP_BASE_URL   "https://dishwasher-oapi-test.pudutech.com"
+    #define HTTP_CLIENT_ID       "dw_client_1648630378"
+    #define HTTP_CLIENT_SECRET   "5TQgVTNiEKp1PwMKaY5X"
+    // #define GRANT_TYPE      "client_credentials"        
 #elif defined TEST
     #define HTTP_BASE_URL    "https://dishwasher-oapi-test.pudutech.com"  // 测试服地址
 #else
@@ -32,8 +35,11 @@
 #define HTTP_GET_INSPECT_STATUS_DOMAIN_SUFFIX_2            "/inspect_status"          //"/inspect_status"
 #define HTTP_PATCH_DOMAIN_SUFFIX_1                         "/dishwasher-gateway/api/v1/devices/"
 #define HTTP_PATCH_DOMAIN_SUFFIX_2                         "/inspect_status"     //"/activated_status"
+#define HTTP_GET_DISHWASHER_SIGNAL_DOMAIN_SUFFIX_1         "/dishwasher-gateway/api/v1/devices/"
+#define HTTP_GET_DISHWASHER_SIGNAL_DOMAIN_SUFFIX_2         "/signal_strength" 
+#define HTTP_POST_TOKEN_DOMAIN_SUFFIX                      "/dishwasher-gateway/api/v1/tokens"
 
-// #elif defined DTU_CFG_BY_HTTP
+//#elif defined DTU_CFG_BY_HTTP
 
 #ifdef DEV
 #define BASE_URL        "https://cloud-oapi-dev.pudutech.com"
@@ -123,7 +129,14 @@ public:
      * @param pid
      * @return 0：未激活；1：已激活；-1：异常错误
      */    
-    int getTcpClientSelfCheckResult(QString pid);
+    PdDevSelfCheckInfo * getTcpClientSelfCheckResult(QString pid);
+
+    /**
+     * @brief getdishwasherSignal 获取整机信号强度
+     * @param pid
+     * @return >= 0：信号强度；-1：异常错误
+     */
+    int getdishwasherSignal(QString pid);
 
 private:
     PdHttpApi(QObject *parent);

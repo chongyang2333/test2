@@ -20,6 +20,11 @@ struct PdDeviceTcpRsgisterInfo
     QByteArray tcpHostPort;
     QByteArray tcpHostSecret;
     QByteArray pid;
+};
 
+struct PdDevSelfCheckInfo
+{
+    int selfCheckState ;
+    int dishwasherVersion;
 };
 #endif // DEVICEINFO_H

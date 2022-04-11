@@ -1,16 +1,16 @@
 #include "signalstrengthtestthread.h"
-
 #include "pdserial.h"
-
 #include <QSerialPortInfo>
 #include <QByteArray>
 #include <QDebug>
+#include "settingini.h"
 
 SignalStrengthTestThread::SignalStrengthTestThread()
 {
     interval = 200; //默认200ms读取一次信号强度
     stopFlag = false;
     mSerial = nullptr;
+    dtuTypeIndex = 0;
 }
 
 SignalStrengthTestThread::~SignalStrengthTestThread()
@@ -20,6 +20,14 @@ SignalStrengthTestThread::~SignalStrengthTestThread()
 
 void SignalStrengthTestThread::run()
 {
+    dtuTypeIndex = SettingINI::getInstance()->getDtuTypeIndex(CURRENT_DTU_TYPE_INDEX);
+    if(dtuTypeIndex == 0)
+    {
+        qDebug()<<"dtu type error";
+        emit signalStrength(-3);
+        return;
+    }
+
     if (!findValidSerialPort()) {
         emit signalStrength(-2);
         return;
@@ -33,6 +41,7 @@ void SignalStrengthTestThread::run()
     }
     mSerial->close();
     delete mSerial;
+    qDebug()<<"SignalStrengthTestThread finished";
 }
 
 bool SignalStrengthTestThread::findValidSerialPort()

@@ -4,19 +4,34 @@
 #include <QDebug>
 #include "pdhttpapi.h"
 #include "pdserial.h"
-
+#include "settingini.h"
 IQCTestThread::IQCTestThread()
 {
+   dtuTypeIndex = 0;
 }
 
 void IQCTestThread::run()
 {
+
     int signalStrength = -1;
     int timeout = 20; //20 * (100+100+100+Signal_100)ms
+
+    dtuTypeIndex = SettingINI::getInstance()->getDtuTypeIndex(CURRENT_DTU_TYPE_INDEX);
+    if(dtuTypeIndex == 0)
+    {
+        qDebug()<<"dtu type error";
+        signalStrength = -3;
+        emit testResult(serialPort1Name, serialPort2Name, serialPortNum, signalStrength);
+        return;
+    }
 
     while(1) {
         serialPortNum = 0;
         const auto ports = QSerialPortInfo::availablePorts();
+        if(ports.isEmpty())
+        {
+            break;
+        }
         for (const QSerialPortInfo &port : ports) {
             qDebug()<<"port ch ="<<port.portName();
             //先连接上串口
@@ -51,8 +66,6 @@ void IQCTestThread::run()
 
         if (serialPortNum >= 1) {
             qDebug() << "get ports number = " << serialPortNum;
-        }
-        if (serialPortNum >= 2) {
             break;
         }
 

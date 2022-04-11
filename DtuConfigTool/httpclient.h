@@ -17,7 +17,7 @@ public:
     explicit PdHttpClient(QObject *parent, bool sync);
     ~PdHttpClient();
     QNetworkReply *httpClientGetData(QString url);
-    QNetworkReply *httpClientPatchData(QString url,QByteArray data);    
+    QNetworkReply *httpClientPatchData(QString url,QString auth,QByteArray data);
     QNetworkReply *httpClientGet(QString url, QString auth);
     QNetworkReply *httpClientPost(QString url, QString auth, QByteArray data);
 

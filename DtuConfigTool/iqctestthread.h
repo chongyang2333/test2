@@ -40,6 +40,7 @@ private:
 
 private:
     int serialPortNum;
+    int dtuTypeIndex;
     QString serialPort1Name;
     QString serialPort2Name;
 };

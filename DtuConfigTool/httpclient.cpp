@@ -56,7 +56,7 @@ QNetworkReply *PdHttpClient::httpClientGet(QString url, QString auth)
     request.setUrl(QUrl(url));
 
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-    request.setRawHeader("Authorization", auth.toLocal8Bit());
+    request.setRawHeader("Authorization", ("bearer " + auth).toLocal8Bit());
 
     if (syncFlag) {
         return manager->get(request);
@@ -66,23 +66,21 @@ QNetworkReply *PdHttpClient::httpClientGet(QString url, QString auth)
     }
 }
 
-QNetworkReply *PdHttpClient::httpClientPatchData(QString url,QByteArray data)
+QNetworkReply *PdHttpClient::httpClientPatchData(QString url,QString auth,QByteArray data)
 {
     QNetworkRequest request;
     request.setUrl(QUrl(url));
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    request.setRawHeader("Authorization", ("bearer " + auth).toLocal8Bit());
     
     QByteArray * bufArray = new QByteArray();
     *bufArray = data;
     QBuffer *tmpBuf = new QBuffer( bufArray);;
 
-    qDebug()<<"buf size = "<<tmpBuf->size()<<data<<"data size"<<data.size();
-    // tmpBuf.open(QBuffer::ReadWrite);
-    // tmpBuf.write(data);
-    // tmpBuf.seek(0);
+    // qDebug()<<"buf size = "<<tmpBuf->size()<<data<<"data size"<<data.size();
     if (syncFlag) 
     {
-//        return manager->sendCustomRequest(request,QByteArray("PATCH"),&tmpBuf);
+        return manager->sendCustomRequest(request,QByteArray("PATCH"),tmpBuf);
     }
     else 
     {
@@ -97,13 +95,17 @@ QNetworkReply *PdHttpClient::httpClientPost(QString url, QString auth, QByteArra
     request.setUrl(QUrl(url));
 
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-    if (auth != nullptr) {
-        request.setRawHeader("Authorization", ("Bearer " + auth).toLocal8Bit());
+    if(auth != nullptr)
+    {
+        request.setRawHeader("Authorization", ("bearer " + auth).toLocal8Bit());
     }
 
-    if (syncFlag) {
+    if(syncFlag)
+    {
         return manager->post(request, data);
-    } else {
+    }
+    else
+    {
         QNetworkReply *reply = manager->post(request, data);
         return waitHttpReply(reply);
     }

@@ -6,6 +6,7 @@
 #include <QMutex>
 
 #define CURRENT_TAB_INDEX "cur_index"
+#define CURRENT_DTU_TYPE_INDEX "cur_dtu_type_index"
 
 class SettingINI
 {
@@ -17,6 +18,7 @@ public:
     bool save(QString name, int value);
     QString getString(QString name);
     int get(QString name);
+    int getDtuTypeIndex(QString name);  
 
 private:
     SettingINI();

@@ -31,7 +31,7 @@ bool SettingINI::save(QString name, int value)
     }
 
 saveItem:
-    root.insert(name, value);
+    root.insert(name, value); 
     doc.setObject(root);
     data = doc.toJson(QJsonDocument::Indented);
     //qDebug() << data;
@@ -111,6 +111,34 @@ int SettingINI::get(QString name)
     file.close();
     return 0;
 }
+
+
+int SettingINI::getDtuTypeIndex(QString name)
+{
+    QFile file(path);
+    if (!file.open(QIODevice::ReadWrite | QIODevice::Text)) {
+        qDebug() << "open " << path << " failed";
+        return 0;
+    }
+    QByteArray data = file.readAll();
+//    qDebug() << "read all "<<data;
+    QJsonParseError err;
+    QJsonDocument doc = QJsonDocument::fromJson(data, &err);
+    if (err.error != QJsonParseError::NoError) {
+        qDebug() << "Setting parse error, " << err.errorString();
+        return 0;
+    }
+    QJsonObject root = doc.object();
+    if (root.contains(name) && root.value(name).isDouble()) {
+        file.close();
+//        qDebug() << "Setting parse read succceed, " << root.value(name).toInt();
+        return root.value(name).toInt();
+    }
+
+    file.close();
+    return 0;
+}
+
 
 /**
  * @brief SettingINI::readSettingIni 把设置文件内容读取到QByteArray中
