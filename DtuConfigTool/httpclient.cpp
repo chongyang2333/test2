@@ -8,9 +8,7 @@
 #include <QThread>
 PdHttpClient::PdHttpClient(QObject *parent, bool sync) : QObject(parent)
 {
-    // qDebug()<<"PdHttpClient pid = "<<QThread::currentThread();
     manager = new QNetworkAccessManager(parent);    
-//    manager->moveToThread(parent);
     syncFlag = sync;
     qDebug() << manager->supportedSchemes();
     // qDebug() << "start creat manager,syncflag = "<<syncFlag;
@@ -27,27 +25,6 @@ PdHttpClient::PdHttpClient(QObject *parent, bool sync) : QObject(parent)
 PdHttpClient::~PdHttpClient()
 {
 
-}
-
-QNetworkReply *PdHttpClient::httpClientGetData(QString url)
-{
-    QNetworkRequest request;
-    
-    // request.setUrl(QUrl("http://localhost:8000/dishwasher-gateway/api/v1/devices/69042110018001/dtu_config"));
-    request.setUrl(QUrl(url));
-    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-    // request.setRawHeader("pid", pid.toLocal8Bit());
-
-    if (syncFlag) 
-    {
-        // qDebug() << "httpClientGetData sync";
-        return manager->get(request);
-    } else 
-    {
-        // qDebug() << "httpClientGetData Nosync";
-        QNetworkReply *reply = manager->get(request);
-        return waitHttpReply(reply);
-    }
 }
 
 QNetworkReply *PdHttpClient::httpClientGet(QString url, QString auth)

@@ -114,28 +114,6 @@ void dtuCfgThread::cfgFailedHandling()
 
 void dtuCfgThread::serialSendCfgAT()
 {
-    #if 0
-    //阿里云烧录
-    //DTU设备名配置成PID:AT+DEVICEID="69041C3101X0002"
-    //DTU工作模式配置成阿里云: AT+DTUMODE=6,0,0,0
-    //DTU配置阿里云三元组信息： AT+ALYMQTT=0,"a1jwF4WJzeM","b202a7150fd4022ff47d6adb9f96ed3f","69041C3101X0002",1
-    //DTU配置阿里云服务器地址为上海：AT+ALYREGIONID="cn-shanghai",1
-    //DTU配置MQTT订阅： AT+AUTOSUB=1,"/sys/a1jwF4WJzeM/69041C3101X0002/thing/model/down_raw",1,1
-    //DTU配置MQTT推送： AT+AUTOPUB=1,"/sys/a1jwF4WJzeM/69041C3101X0002/thing/model/up_raw",1,1,1
-    //DTU配置串口： AT+UARTCFG=38400,1,0,1
-    //DTU保存刚才配置的参数
-    serialSendCmdCheckReturn(QString("AT+DEVICEID=\"") + QString(AliRegisterInfo->deviceName) + QString("\""),"OK");
-    serialSendCmdCheckReturn("AT+DTUMODE=6,1","OK");
-    serialSendCmdCheckReturn(QString("AT+ALYMQTT=0,\"") + QString(AliRegisterInfo->productKey) + "\",\"" + QString(AliRegisterInfo->deviceSecret) + \
-                         "\",\"" + QString(AliRegisterInfo->deviceName) + "\",1","OK");
-    serialSendCmdCheckReturn("AT+ALYREGIONID=\"cn-shanghai\",1","OK");
-    serialSendCmdCheckReturn(QString("AT+AUTOSUB=1,\"/sys/") + QString(AliRegisterInfo->productKey + "/" + QString(AliRegisterInfo->deviceName)+ \
-                                                                   + "/thing/model/down_raw\",1,1") ,"OK");
-    serialSendCmdCheckReturn("AT+AUTOPUB=1,\"/sys/" + AliRegisterInfo->productKey + "/" + AliRegisterInfo->deviceName + \
-                         "/thing/model/up_raw\",1,1,1","OK");
-    serialSendCmdCheckReturn("AT+UARTCFG=38400,1,0,2","OK");
-    serialSendCmdCheckReturn("AT&W","OK");
-    #else
     //TCP烧录
     //配置工作模式为TCP/UDP透传       ：AT+DTUMODE=1,1
     //配置modbus_RTU不转TCP功能      : AT+TCPMODBUS=0,1
@@ -162,13 +140,11 @@ void dtuCfgThread::serialSendCfgAT()
                              QString("\",") + QString(dtuTcpRegisterInfo->tcpHostPort),"OK");
     serialSendCmdCheckReturn("AT+UARTCFG=38400,1,0,2","OK");
     serialSendCmdCheckReturn("AT&W","OK");
-    #endif
 
 }
 
 bool dtuCfgThread::readCurDtuCfg()
 {
-    #if 1
     if(!serialSendCmdCheckReturn("AT+DTUMODE?\r\n",\
                                  "+DTUMODE: 1,0,0,0"))
     {
@@ -212,47 +188,6 @@ bool dtuCfgThread::readCurDtuCfg()
          return false;
     }
     return true;    
-    #else
-    if(!serialSendCmdCheckReturn("AT+DTUMODE?\r\n",\
-                                 "+DTUMODE: 6,0,0,0"))
-    {
-        return false;
-    }
-    if(!serialSendCmdCheckReturn("AT+DEVICEID?\r\n",\
-                                 "+DEVICEID: \"" + QString(AliRegisterInfo->deviceName)+"\""))
-    {
-        return false;
-    }
-    if(!serialSendCmdCheckReturn("AT+ALYMQTT?\r\n",\
-                                 QString("+ALYMQTT: 0,\"") + QString(AliRegisterInfo->productKey) + "\",\"" +\
-                                 QString(AliRegisterInfo->deviceSecret) + "\",\"" + QString(AliRegisterInfo->deviceName) +"\",1"))
-    {
-        return false;
-    }
-    if(!serialSendCmdCheckReturn("AT+ALYREGIONID?\r\n",\
-                                 "+ALYREGIONID: \"cn-shanghai\",1"))
-    {
-        return false;
-    }
-    if(!serialSendCmdCheckReturn("AT+AUTOSUB?\r\n",\
-                                 "+AUTOSUB: 1,\"/sys/" + AliRegisterInfo->productKey + "/"+ \
-                                 AliRegisterInfo->deviceName + "/thing/model/down_raw\",1,1"))
-    {
-        return false;
-    }
-    if(!serialSendCmdCheckReturn("AT+AUTOPUB?\r\n",\
-                                 "+AUTOPUB: 1,\"/sys/" + AliRegisterInfo->productKey + "/" + AliRegisterInfo->deviceName + \
-                                                          "/thing/model/up_raw\",1,1,1"))
-    {
-        return false;
-    }
-    if(!serialSendCmdCheckReturn("AT+UARTCFG?\r\n",\
-                                 "+UARTCFG: 38400,1,0,2"))
-    {
-        return false;
-    }
-    return true;
-    #endif
 }
 
 bool dtuCfgThread::getRegisterInfoFromHttps(QString pid)
@@ -441,22 +376,6 @@ bool dtuCfgThread::reStartCurDev()
     return false;
 }
 
-
-bool dtuCfgThread::activeCurDevByHttps()
-{
-    if(PdHttpApi::getInstance(this)->active(AliRegisterInfo->deviceName))
-    {
-        qDebug()<<"activeCurDevByHttps succeed";
-        return true;
-    }
-    else
-    {
-       qDebug()<<"activeCurDevByHttps failed";
-       return false;
-    }
-
-}
-
 bool dtuCfgThread::sendSelfcheckResultToMesByHttps()
 {
     if(PdHttpApi::getInstance(this)->sendSelfCheckStatusToMes(dtuTcpRegisterInfo->pid))
@@ -624,28 +543,10 @@ void dtuCfgThread::getPidStartCfgDtu(QString pidNum)
 
 void dtuCfgThread::run()
 {
-
-        // PdHttpApi::getInstance(this)->getTcpRegisterInfo("");
-//    AliRegisterInfo = new PdDeviceRegisterInfo;
-//    TcpRegisterInfo = new PdDeviceTcpRsgisterInfo;
     myC_serial = new c_serail;
-//    dtuTcpRegisterInfo = new PdDeviceTcpRsgisterInfo;
-//    dtuTcpRegisterInfo->pid = "720721146020015";
-//     PdHttpApi::getInstance(this);
+    // qDebug()<<"dtucfgthread  = "<<QThread::currentThread();
 
-    // serialDelayLoopTimer = new QTimer();
-    // startCfgFlag = false;
-    qDebug()<<"dtucfgthread  = "<<QThread::currentThread();
     dtuCfg();
-//    while(1)
-//    {
-//      if(startCfgFlag)
-//      {
-//          //执行DTU配置
-//          dtuCfg();
-//          startCfgFlag = false;
-//      }
-//      QThread::msleep(100);
-//    }
+
 
 }

@@ -64,6 +64,7 @@ int PdHttpApi::getAccessToken()
                     {
                         expiresIn = infoObj.value("expires_in").toInt();
                     }
+                    qDebug()<<"getAccessToken: accessToken: "<< accessToken << " expiresIn: "<< expiresIn;
                 }
             }            
         }
@@ -87,7 +88,7 @@ PdDeviceTcpRsgisterInfo *PdHttpApi::getTcpRegisterInfo(QString pid)
     QString url = QString(HTTP_BASE_URL) + QString(HTTP_GET_DTUCFG_DOMAIN_SUFFIX_1) + \
                   QString(pid) + QString(HTTP_GET_DTUCFG_DOMAIN_SUFFIX_2);
 
-    qDebug() <<"getTcpRegisterInfo : url = " << url << ",accessToken :"<<accessToken;
+    // qDebug() <<"getTcpRegisterInfo : url = " << url << ",accessToken :"<<accessToken;
     QNetworkReply *reply = httpClientGet(url,accessToken);
     if (reply == nullptr) 
     {
@@ -250,85 +251,6 @@ int PdHttpApi::getdishwasherSignal(QString pid)
     return -1;
 
 }
-PdDeviceRegisterInfo *PdHttpApi::getRegisterInfo(QString pid)
-{
-    qDebug()<<"getRegisterInfo: "<< pid;
-    if (accessToken.isEmpty()) {
-        if(getAccessToken() < 0) {
-            qWarning()<< "getAccessToken failed";
-            return nullptr;
-        }
-    }
-
-    QJsonObject json;
-    json.insert("pid", pid);
-    QJsonDocument doc;
-    doc.setObject(json);
-    QByteArray byteData = doc.toJson(QJsonDocument::Compact);
-    qDebug()<<byteData;
-
-    QString url = QString(HTTP_BASE_URL) + QString(GET_REGISTER_INFO);
-
-    QNetworkReply *reply = httpClientPost(url, accessToken, byteData);
-    if (reply == nullptr) {
-        qDebug() << "httpClientPost failed";
-        return nullptr;
-    }
-
-    int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-
-    if (statusCode == 401) {
-        if (retryTimes >= maxRetryTimes) {
-            qDebug() << "Get access token " << retryTimes << " times, but failed";
-            return nullptr;
-        }
-        retryTimes++;
-        if(getAccessToken() < 0) {
-            qWarning()<< "getAccessToken failed";
-            return nullptr;
-        }
-        return getRegisterInfo(pid); //重新尝试获取设备信息
-    }else if (statusCode != 200) {
-        qWarning() << "getRegisterInfo failed, status code:" << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-        qWarning() << reply->readAll();
-        return nullptr;
-    }
-
-    QByteArray replyData = reply->readAll();
-    qDebug() << replyData;
-    QJsonParseError jsonError;
-
-    QJsonDocument rdoc = QJsonDocument::fromJson(replyData, &jsonError);
-    if (!rdoc.isNull() && jsonError.error == QJsonParseError::NoError) {
-        if (rdoc.isObject()) {
-            QJsonObject obj = rdoc.object();
-            if (obj.contains("code")) {
-                qint64 code = QString::number(obj.value("code").toDouble(), 'f', 0).toLongLong();
-                if ((code == 200  || code == 0) && obj.contains("data")) {
-                    PdDeviceRegisterInfo *info = new PdDeviceRegisterInfo;
-                    QJsonObject infoObj = obj.value("data").toObject();
-                    if (infoObj.contains("product_key")) {
-                        info->productKey = infoObj.value("product_key").toString().toLocal8Bit();
-                    }
-                    if (infoObj.contains("device_name")) {
-                        info->deviceName = infoObj.value("device_name").toString().toLocal8Bit();
-                    }
-                    if (infoObj.contains("device_secret")) {
-                        info->deviceSecret = infoObj.value("device_secret").toString().toLocal8Bit();
-                    }
-                    if (infoObj.contains("isp")) {
-                        info->isp = infoObj.value("isp").toString().toLocal8Bit();
-                    }
-
-                    return info;
-                }
-            }
-        }
-    }
-
-    return nullptr;
-}
-
 bool PdHttpApi::sendSelfCheckStatusToMes(QString pid)
 {
     qDebug()<<"sendSelfCheckStatusToMes: pid = "<< pid;
@@ -397,71 +319,6 @@ bool PdHttpApi::sendSelfCheckStatusToMes(QString pid)
                 qDebug()<< "code = " << code;
                 if (code == 200  || code == 0 ) 
                 {
-                    return true;
-                }
-            }
-        }
-    }
-
-    return false;
-}
-
-
-bool PdHttpApi::active(QString pid)
-{
-    qDebug()<<"active: "<< pid;
-    if (accessToken.isEmpty()) {
-        if(getAccessToken() < 0) {
-            qWarning()<< "getAccessToken failed";
-            return false;
-        }
-    }
-
-    QJsonObject json;
-    json.insert("pid", pid);
-    QJsonDocument doc;
-    doc.setObject(json);
-    QByteArray byteData = doc.toJson(QJsonDocument::Compact);
-
-    QString url = QString(BASE_URL) + QString(ACTIVE_URL);
-
-    QNetworkReply *reply = httpClientPost(url, accessToken, byteData);
-    if (reply == nullptr) {
-        qDebug() << "httpClientPost failed";
-        return false;
-    }
-
-    int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-
-    if (statusCode == 401) {
-        if (retryTimes >= maxRetryTimes) {
-            qDebug() << "Get access token " << retryTimes << " times, but failed";
-            return false;
-        }
-        retryTimes++;
-        if(getAccessToken() < 0) {
-            qWarning()<< "getAccessToken failed";
-            return false;
-        }
-        return active(pid); //重新尝试
-    }else if (statusCode != 200) {
-        qWarning() << "active failed, status code:" << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-        qWarning() << reply->readAll();
-        return false;
-    }
-
-    QByteArray replyData = reply->readAll();
-    qDebug() << replyData;
-    QJsonParseError jsonError;
-
-    QJsonDocument rdoc = QJsonDocument::fromJson(replyData, &jsonError);
-    if (!rdoc.isNull() && jsonError.error == QJsonParseError::NoError) {
-        if (rdoc.isObject()) {
-            QJsonObject obj = rdoc.object();
-            if (obj.contains("code")) {
-                qint64 code = QString::number(obj.value("code").toDouble(), 'f', 0).toLongLong();
-                qDebug()<< "code = " << code;
-                if (code == 200  || code == 0 ) {
                     return true;
                 }
             }
@@ -553,70 +410,3 @@ PdDevSelfCheckInfo * PdHttpApi::getTcpClientSelfCheckResult(QString pid)
     return nullptr;    
 
 }
-
-int PdHttpApi::getSelfCheckResult(QString pid)
-{
-    qDebug()<<"getSelfCheckResult: "<< pid;
-    if (accessToken.isEmpty()) {
-        if(getAccessToken() < 0) {
-            qWarning()<< "getAccessToken failed";
-            return -1;
-        }
-    }
-
-    QJsonObject json;
-    json.insert("pid", pid);
-    QJsonDocument doc;
-    doc.setObject(json);
-    QByteArray byteData = doc.toJson(QJsonDocument::Compact);
-
-    QString url = QString(BASE_URL) + QString(SELF_CHECK_RESULT);
-
-    QNetworkReply *reply = httpClientPost(url, accessToken, byteData);
-    if (reply == nullptr) {
-        qDebug() << "httpClientPost failed";
-        return -1;
-    }
-
-    int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-
-    if (statusCode == 401) {
-        if (retryTimes >= maxRetryTimes) {
-            qDebug() << "Get access token " << retryTimes << " times, but failed";
-            return -1;
-        }
-        retryTimes++;
-        if(getAccessToken() < 0) {
-            qWarning()<< "getAccessToken failed";
-            return -1;
-        }
-        return getSelfCheckResult(pid); //重新尝试
-    }else if (statusCode != 200) {
-        qWarning() << "getRegisterInfo failed, status code:" << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-        qWarning() << reply->readAll();
-        return -1;
-    }
-
-    QByteArray replyData = reply->readAll();
-    qDebug() << replyData;
-    QJsonParseError jsonError;
-
-    QJsonDocument rdoc = QJsonDocument::fromJson(replyData, &jsonError);
-    if (!rdoc.isNull() && jsonError.error == QJsonParseError::NoError) {
-        if (rdoc.isObject()) {
-            QJsonObject obj = rdoc.object();
-            if (obj.contains("code")) {
-                qint64 code = QString::number(obj.value("code").toDouble(), 'f', 0).toLongLong();
-                if ((code == 200  || code == 0) && obj.contains("data")) {
-                    QJsonObject dataObj = obj.value("data").toObject();
-                    if (dataObj.contains("status")) {
-                        return dataObj.value("status").toInt();
-                    }
-                }
-            }
-        }
-    }
-
-    return -1;
-}
-

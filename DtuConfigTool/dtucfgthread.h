@@ -36,7 +36,6 @@ private:
     bool searcDevFromCurSerial();
     bool cfgCurDev();
     bool reStartCurDev();
-    bool activeCurDevByHttps();
     bool checkCurDevByHttps(QString *devVersion);
     bool serialSendCmdCheckReturn(QString SendATCmd,QString ReceiveATCmd);
     void serialSendCfgAT();
@@ -46,7 +45,6 @@ private:
     bool selfcheckCurDevByHttps(QString *devVersion);
     void cfgFailedHandling();
     bool sendSelfcheckResultToMesByHttps();
-//    bool selfcheckCurDevByHttps();
     bool startCfgFlag = false;
     bool startActiveFlag = false;
     c_serail  *myC_serial;

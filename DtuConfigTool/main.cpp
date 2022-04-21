@@ -27,7 +27,7 @@ int main(int argc, char *argv[])
 
 #else
 
-    PdLog::getInstance()->init(PdLog::PdDebug, "PdLogTest.log")->install();
+    PdLog::getInstance()->init(PdLog::PdRelease, "PdLogTest.log")->install();
 #endif
 
     //w.show();
